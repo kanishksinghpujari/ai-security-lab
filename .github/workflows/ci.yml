@@ -19,6 +19,11 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check dashboard JavaScript syntax
+        run: node --check src/main/resources/static/app.js
       - name: Build and test
         run: mvn -B verify
 
