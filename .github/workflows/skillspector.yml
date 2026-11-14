@@ -1,0 +1,36 @@
+name: SkillSpector
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '17 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  scan-audit-skill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Install SkillSpector
+        run: uv tool install git+https://github.com/NVIDIA/skillspector.git
+      - name: Fetch Cloudflare audit skill for supply-chain review
+        run: git clone --depth 1 https://github.com/cloudflare/security-audit-skill.git /tmp/cloudflare-security-audit-skill
+      - name: Scan the audit skill without sending contents to an LLM
+        run: |
+          mkdir -p reports
+          skillspector scan /tmp/cloudflare-security-audit-skill \
+            --no-llm --format json \
+            --output reports/skillspector-cloudflare-skill.json
+      - name: Upload SkillSpector report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: skillspector-cloudflare-skill
+          path: reports/skillspector-cloudflare-skill.json
+          if-no-files-found: ignore
