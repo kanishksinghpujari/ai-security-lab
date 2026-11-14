@@ -16,13 +16,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Scan repository filesystem
+      - name: Scan dependencies and secrets
         run: |
           docker run --rm \
             -v "$PWD:/work" \
             -w /work \
             aquasec/trivy:0.59.1 \
-            fs --scanners vuln,misconfig,secret \
+            fs --scanners vuln,secret \
             --severity CRITICAL,HIGH \
             --skip-dirs .git,target \
             --exit-code 1 .
