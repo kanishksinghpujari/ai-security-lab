@@ -16,7 +16,7 @@ async function api(path, options = {}) {
     ...options,
     headers: {
       Authorization: authHeader(),
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...(options.body && !(options.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
       ...(options.headers || {})
     }
   });
@@ -114,5 +114,25 @@ byId("create-product").addEventListener("submit", async (event) => {
     await loadProducts();
   } catch (error) {
     byId("product-error").textContent = error.message;
+  }
+});
+
+
+byId("upload-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const file = byId("upload-file").files[0];
+  if (!file) return;
+  const data = new FormData();
+  data.append("file", file);
+  const result = byId("upload-result");
+  result.textContent = "Scanning file…";
+  result.className = "upload-result";
+  try {
+    const scan = await api("/api/uploads", { method: "POST", body: data });
+    result.textContent = scan.fileName + " passed ClamAV (" + scan.scanStatus + ").";
+    result.classList.add("clean");
+  } catch (error) {
+    result.textContent = error.message;
+    result.classList.add("blocked");
   }
 });
