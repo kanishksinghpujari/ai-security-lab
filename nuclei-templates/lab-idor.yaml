@@ -1,0 +1,17 @@
+id: ai-security-lab-idor
+
+info:
+  name: AI Security Lab intentionally vulnerable IDOR fixture
+  author: ai-security-lab
+  severity: high
+  description: Detects the seeded IDOR route in the isolated lab-vulnerable profile.
+  tags: ai-security-lab,idor,training
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/lab-vulnerable/orders/1002"
+    matchers:
+      - type: status
+        status:
+          - 200
