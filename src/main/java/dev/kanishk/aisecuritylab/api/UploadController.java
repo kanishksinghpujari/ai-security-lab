@@ -4,7 +4,6 @@ import dev.kanishk.aisecuritylab.security.ClamAvScanner;
 import dev.kanishk.aisecuritylab.security.ClamAvScanner.ScanResult;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Locale;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
