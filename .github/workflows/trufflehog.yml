@@ -1,0 +1,30 @@
+name: TruffleHog
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '41 4 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  git-history-secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scan full Git history for verified and unknown secrets
+        run: |
+          docker run --rm \
+            -v "$PWD:/workdir" \
+            -w /workdir \
+            trufflesecurity/trufflehog:v3.99.9 \
+            git file:///workdir \
+            --results=verified,unknown \
+            --fail \
+            --no-update
