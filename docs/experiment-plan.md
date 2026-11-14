@@ -13,30 +13,32 @@ How much risk remains in an AI-assisted application after layered security testi
 7. Repeat identical commands against the hardened commit.
 8. Preserve sanitized reports and note tool limitations.
 
-## Seeded issue
-The opt-in lab-vulnerable profile contains an insecure direct object reference demonstration at GET /lab-vulnerable/orders/{id}. It is not loaded by default. The normal API order endpoint enforces owner/admin access.
+## Seeded issues and test fixtures
+- The opt-in lab-vulnerable profile contains an insecure direct object reference demonstration at GET /lab-vulnerable/orders/{id}. It is not loaded by default. The normal API order endpoint enforces owner/admin access.
+- The ClamAV upload path uses the harmless EICAR test signature in CI to confirm that detected malware is rejected. The EICAR string is a standard antivirus test fixture, not a live virus.
 
 ## Tool coverage
 
 | Tool | Primary layer | Notes |
 |---|---|---|
-| Strix | Authorized DAST | Local target only |
-| Cloudflare Security Audit Skill | Agent-assisted source audit | Run in supported coding agent |
-| Trivy | Dependencies, image, IaC | Scan repository and built image |
-| Nuclei | Template-based DAST | Explicit loopback target |
-| TruffleHog | Secrets | Scan working tree and Git history |
-| NVIDIA SkillSpector | Agent skills | Scan skills used in experiment |
-| Semgrep | SAST | Scan source tree |
-| Codex Security | AI-assisted code security | Access/availability to verify |
-| ClamAV | Malware | Upload scanning fixture/integration planned |
-| Claude Code Security Review | PR review | Verify current supported workflow |
-| Blind LLM Agents | Reverse-engineering resistance | Separate experiment, not app SAST |
-| Microsoft PyRIT | LLM red teaming | Requires LLM feature and harness |
+| Strix | Authorized DAST | Local target only; needs an LLM provider |
+| Cloudflare Security Audit Skill | Agent-assisted source audit | Requires a supported coding agent and OS-enforced sandbox |
+| Trivy | Dependencies, image, IaC | Repository dependency/secret scan currently in CI |
+| Nuclei | Template-based DAST | Explicit loopback target; seeded IDOR template |
+| TruffleHog | Secrets | Full Git history scan in CI |
+| NVIDIA SkillSpector | Agent skills | Scan the actual skill directories installed for the experiment |
+| Semgrep | SAST | Java ruleset in CI |
+| Codex Security | AI-assisted code security | CLI/SDK requires current product access and credentials |
+| ClamAV | Malware | INSTREAM upload integration and EICAR regression workflow |
+| Claude Code Security Review | PR review | Optional; do not run on untrusted PRs without protections |
+| Blind LLM Agents | Reverse-engineering resistance | Separate release-artifact test, not app SAST |
+| Microsoft PyRIT | LLM red teaming | Requires an LLM feature and target harness; deferred |
 
-The matrix is a plan, not a claim that scans have run or passed. These tools are not interchangeable.
+The matrix is a plan plus current integration status, not a claim that all tools have run or passed. These tools are not interchangeable.
 
 ## Safety boundaries
 - Never scan third-party systems.
 - Use synthetic credentials and disposable data.
 - Do not enable lab-vulnerable on shared or public infrastructure.
+- Keep the ClamAV port internal to Compose.
 - Sanitize reports before committing; never publish credentials, cookies or private data.
