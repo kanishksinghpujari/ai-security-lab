@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: ai-security-lab
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
 management:
   endpoints:
     web:
@@ -12,3 +16,7 @@ management:
   endpoint:
     health:
       show-details: never
+lab:
+  clamav:
+    host: ${CLAMAV_HOST:127.0.0.1}
+    port: ${CLAMAV_PORT:3310}
