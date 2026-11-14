@@ -28,7 +28,7 @@ Scans dependencies, images, filesystems, IaC, secrets and misconfigurations. The
 Discovers, classifies and can validate exposed credentials. Run against the Git history, not just the current working tree. Treat verified credentials as compromised: revoke/rotate them, do not paste them into issues or reports, and preserve only redacted evidence.
 
 ### ClamAV — https://github.com/Cisco-Talos/clamav
-Malware scanning engine for uploaded files. It does not identify application authorization bugs or source-code vulnerabilities. The application does not yet expose an upload endpoint; add a controlled EICAR test fixture and clamd integration before claiming ClamAV coverage.
+Malware scanning engine for uploaded files. It does not identify application authorization bugs or source-code vulnerabilities. The API exposes an authenticated upload endpoint for PNG, JPEG, PDF and plain-text files. It enforces a 5 MiB limit, checks file signatures, streams content to clamd using INSTREAM, and fails closed if the scanner is unavailable. A dedicated workflow uses a clean text file and the harmless EICAR test signature to verify clean/infected handling.
 
 ## Runtime testing
 
