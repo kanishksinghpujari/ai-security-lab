@@ -1,0 +1,17 @@
+id: ai-security-lab-v1-idor
+
+info:
+  name: AI Security Lab V1 seeded IDOR
+  author: ai-security-lab
+  severity: high
+  description: Detects cross-customer order access in the isolated V1 vulnerable build.
+  tags: ai-security-lab,idor,bola,training
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/api/orders/1002"
+    matchers:
+      - type: dsl
+        dsl:
+          - "status_code == 200 && contains(body, 'another-customer')"

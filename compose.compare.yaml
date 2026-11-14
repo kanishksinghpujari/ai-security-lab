@@ -1,0 +1,47 @@
+services:
+  v1-vulnerable:
+    build:
+      context: ./versions/v1-vulnerable
+      dockerfile: Dockerfile
+    image: ai-security-lab:v1-vulnerable
+    ports:
+      - "127.0.0.1:8081:8080"
+    environment:
+      SERVER_ADDRESS: 0.0.0.0
+      CLAMAV_HOST: clamav
+      CLAMAV_PORT: 3310
+      LAB_ADMIN_PASSWORD: ${LAB_ADMIN_PASSWORD:?Set LAB_ADMIN_PASSWORD}
+      LAB_CUSTOMER_PASSWORD: ${LAB_CUSTOMER_PASSWORD:?Set LAB_CUSTOMER_PASSWORD}
+    depends_on:
+      - clamav
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  v2-hardened:
+    build:
+      context: ./versions/v2-hardened
+      dockerfile: Dockerfile
+    image: ai-security-lab:v2-hardened
+    ports:
+      - "127.0.0.1:8082:8080"
+    environment:
+      SERVER_ADDRESS: 0.0.0.0
+      CLAMAV_HOST: clamav
+      CLAMAV_PORT: 3310
+      LAB_ADMIN_PASSWORD: ${LAB_ADMIN_PASSWORD:?Set LAB_ADMIN_PASSWORD}
+      LAB_CUSTOMER_PASSWORD: ${LAB_CUSTOMER_PASSWORD:?Set LAB_CUSTOMER_PASSWORD}
+    depends_on:
+      - clamav
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  clamav:
+    image: clamav/clamav:1.4.6-debian13-slim
+    restart: unless-stopped
+    volumes:
+      - clamav-db:/var/lib/clamav
+
+volumes:
+  clamav-db:
