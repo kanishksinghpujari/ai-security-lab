@@ -64,6 +64,15 @@
         </form>
         <div id="order-result" class="order-result"><span class="muted">No order selected.</span></div>
         <div class="callout"><strong>Security exercise</strong><p>Try order 1002 as lab-customer. The secure endpoint should return 404 rather than disclose another customer’s order.</p></div>
+        <div class="upload-box">
+          <p class="eyebrow">FILE SAFETY CHECK</p><h3>Scan an upload</h3>
+          <p class="muted">PNG, JPEG, PDF or plain text · 5 MiB maximum · ClamAV scans before acceptance.</p>
+          <form id="upload-form">
+            <label>Choose a file<input id="upload-file" type="file" accept=".png,.jpg,.jpeg,.pdf,.txt" required></label>
+            <button class="secondary" type="submit">Upload and scan <span>→</span></button>
+          </form>
+          <p id="upload-result" class="upload-result" aria-live="polite"></p>
+        </div>
       </aside>
     </section>
 
