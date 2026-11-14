@@ -6,8 +6,21 @@ services:
       - "127.0.0.1:8080:8080"
     environment:
       SERVER_ADDRESS: 0.0.0.0
+      CLAMAV_HOST: clamav
+      CLAMAV_PORT: 3310
       LAB_ADMIN_PASSWORD: ${LAB_ADMIN_PASSWORD:?Set LAB_ADMIN_PASSWORD in your shell}
       LAB_CUSTOMER_PASSWORD: ${LAB_CUSTOMER_PASSWORD:?Set LAB_CUSTOMER_PASSWORD in your shell}
+    depends_on:
+      - clamav
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+
+  clamav:
+    image: clamav/clamav:1.4.6-debian13-slim
+    restart: unless-stopped
+    volumes:
+      - clamav-db:/var/lib/clamav
+
+volumes:
+  clamav-db:
