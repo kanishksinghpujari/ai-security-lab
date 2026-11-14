@@ -39,8 +39,14 @@ public class ClamAvScanner {
                 output.writeInt(0);
                 output.flush();
 
-                socket.getInputStream().transferTo(response);
-                String reply = response.toString(StandardCharsets.UTF_8).replace("\u0000", "").trim();
+                int next;
+                while ((next = socket.getInputStream().read()) != -1 && next != 0) {
+                    response.write(next);
+                }
+                if (next == -1) {
+                    throw new IOException("ClamAV closed the connection without a response");
+                }
+                String reply = response.toString(StandardCharsets.UTF_8).trim();
                 if (reply.endsWith("OK")) {
                     return new ScanResult(true, "CLEAN");
                 }
