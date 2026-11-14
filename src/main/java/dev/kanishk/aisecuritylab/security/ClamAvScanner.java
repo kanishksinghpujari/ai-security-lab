@@ -40,7 +40,7 @@ public class ClamAvScanner {
                 output.flush();
 
                 socket.getInputStream().transferTo(response);
-                String reply = response.toString(StandardCharsets.UTF_8).trim();
+                String reply = response.toString(StandardCharsets.UTF_8).replace("\u0000", "").trim();
                 if (reply.endsWith("OK")) {
                     return new ScanResult(true, "CLEAN");
                 }
