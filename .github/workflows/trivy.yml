@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 jobs:
-  filesystem-scan:
+  filesystem-and-image-scan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,3 +26,13 @@ jobs:
             --severity CRITICAL,HIGH \
             --skip-dirs .git,target \
             --exit-code 1 .
+      - name: Build application image
+        run: docker build -t ai-security-lab:ci .
+      - name: Scan built application image
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.76.2 \
+            image --scanners vuln,misconfig,secret \
+            --severity CRITICAL,HIGH \
+            --exit-code 1 ai-security-lab:ci
