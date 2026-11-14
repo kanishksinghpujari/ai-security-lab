@@ -1,0 +1,14 @@
+server:
+  address: 127.0.0.1
+  port: 8080
+spring:
+  application:
+    name: ai-security-lab
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
