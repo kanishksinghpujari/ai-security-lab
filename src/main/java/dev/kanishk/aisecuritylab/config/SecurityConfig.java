@@ -24,7 +24,7 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/health").permitAll()
+                .requestMatchers("/", "/index.html", "/app.js", "/styles.css", "/actuator/health").permitAll()
                 .anyRequest().authenticated())
             .httpBasic(Customizer.withDefaults())
             .build();
