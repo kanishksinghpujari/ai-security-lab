@@ -1,44 +1,62 @@
-# Experiment plan
+# Controlled two-version security experiment
 
 ## Research question
-How much risk remains in an AI-assisted application after layered security testing, and what classes of risk does each tool cover?
 
-## Controls
-1. Pin the application commit under test.
-2. Record tool version, invocation, configuration and runtime environment.
-3. Run source scanners against the same commit.
-4. Run dynamic scanners only against the local app bound to loopback.
-5. Manually triage findings and deduplicate by root cause.
-6. Fix confirmed issues in a separate commit.
-7. Repeat identical commands against the hardened commit.
-8. Preserve sanitized reports and note tool limitations.
+When the same Stockroom application is built in two versions that differ only in order ownership enforcement, can the same tests and security tools demonstrate the security improvement without changing the target's features or runtime?
 
-## Seeded issues and test fixtures
-- The opt-in lab-vulnerable profile contains an insecure direct object reference demonstration at GET /lab-vulnerable/orders/{id}. It is not loaded by default. The normal API order endpoint enforces owner/admin access.
-- The ClamAV upload path uses the harmless EICAR test signature in CI to confirm that detected malware is rejected. The EICAR string is a standard antivirus test fixture, not a live virus.
+## Variants
 
-## Tool coverage
-
-| Tool | Primary layer | Notes |
+| Dimension | V1 — vulnerable | V2 — hardened |
 |---|---|---|
-| Strix | Authorized DAST | Local target only; needs an LLM provider |
-| Cloudflare Security Audit Skill | Agent-assisted source audit | Requires a supported coding agent and OS-enforced sandbox |
-| Trivy | Dependencies, image, IaC | Repository dependency/secret scan currently in CI |
-| Nuclei | Template-based DAST | Explicit loopback target; seeded IDOR template |
-| TruffleHog | Secrets | Full Git history scan in CI |
-| NVIDIA SkillSpector | Agent skills | Scan the actual skill directories installed for the experiment |
-| Semgrep | SAST | Java ruleset in CI |
-| Codex Security | AI-assisted code security | CLI/SDK requires current product access and credentials |
-| ClamAV | Malware | INSTREAM upload integration and EICAR regression workflow |
-| Claude Code Security Review | PR review | Optional; do not run on untrusted PRs without protections |
-| Blind LLM Agents | Reverse-engineering resistance | Separate release-artifact test, not app SAST |
-| Microsoft PyRIT | LLM red teaming | Requires an LLM feature and target harness; deferred |
+| Framework / Java | Spring Boot 3.5.12 / Java 21 | Same |
+| API, UI, data fixtures | Same | Same |
+| Authentication | Same demo HTTP Basic users | Same |
+| Product authorization | Admin-only | Admin-only |
+| Order authorization | Missing owner/admin check | Owner or ADMIN required |
+| Upload controls | Same allowlist, size limit, ClamAV scan, fail-closed behavior | Same |
+| Runtime | Loopback port 8081 | Loopback port 8082 |
 
-The matrix is a plan plus current integration status, not a claim that all tools have run or passed. These tools are not interchangeable.
+The intentional treatment variable is the object-level authorization check in `GET /api/orders/{id}`. Do not introduce unrelated changes between variants during this experiment.
 
-## Safety boundaries
-- Never scan third-party systems.
-- Use synthetic credentials and disposable data.
-- Do not enable lab-vulnerable on shared or public infrastructure.
-- Keep the ClamAV port internal to Compose.
-- Sanitize reports before committing; never publish credentials, cookies or private data.
+## Primary attack
+
+Authenticate as `lab-customer` and request order 1002, which belongs to `another-customer`.
+
+- V1 expected: HTTP 200 and response contains the other customer's order.
+- V2 expected: HTTP 404 and no order data is disclosed.
+- Admin control: `lab-admin` can read order 1002 in both versions.
+- Owner control: `lab-customer` can read order 1001 in both versions.
+
+The shell regression script and Nuclei template use the same seeded cross-customer request. V1 is the positive detection control; V2 is the negative control.
+
+## Execution protocol
+
+1. Record the exact branch commit and image digests.
+2. Build both independent Maven projects from the same dependency baseline.
+3. Run each version's unit/integration tests.
+4. Start both on loopback-only ports with the same disposable credentials and shared internal ClamAV service.
+5. Run the identical authenticated request against each.
+6. Run Nuclei against V1 and V2 with the same template; expect a finding only on V1.
+7. Run source/dependency/image scanners against both project directories with pinned tool versions and identical options.
+8. Triage findings manually; deduplicate by root cause and distinguish seeded findings from unrelated dependency/configuration findings.
+9. Save sanitized raw outputs, tool versions, commands, timestamps, commit SHA and image digest under `results/`.
+10. Do not report a zero-finding scan as proof of security. Report only what each tool tested.
+
+## Metrics to report
+
+- Confirmed exploitable seeded issues per variant
+- Scanner true positives against the seeded issue
+- False positives after manual triage
+- Missed seeded issue (false negative)
+- Dependency and container findings, grouped by severity and fix availability
+- Runtime and resource cost, if measured
+- Regression test outcomes
+- Limitations, unavailable tools and credential-gated tools
+
+## Tool applicability
+
+The 12 tools do not all test the same surface. Nuclei/Strix are runtime-oriented; Semgrep/Trivy inspect source and artifacts; TruffleHog searches history; ClamAV scans uploaded file contents; SkillSpector audits agent skills; PyRIT requires an LLM target; BLA addresses release-artifact reverse engineering. Credentialed AI products must be listed as not run when access is unavailable, not treated as passing.
+
+## Safety
+
+V1 is intentionally insecure. Both Compose services bind only to host loopback. Use synthetic data and disposable credentials. Never expose V1 to a public/shared network or scan third-party systems.

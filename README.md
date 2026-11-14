@@ -1,74 +1,73 @@
-# AI Security Lab
+# AI Security Lab — two-version comparison
 
-A reproducible, local-first experiment: build an application, run security tools against it, remediate confirmed findings, and publish evidence-backed results.
+This repository now contains two independently runnable builds of the same Stockroom application. They share the same Java/Spring Boot version, API surface, demo data, UI, dependencies, and runtime configuration. The intended difference is the order-ownership authorization check.
 
-> Safety: This is a training lab. Test only systems you own or are authorized to assess. The intentionally vulnerable profile is disabled by default. Never expose it to the public internet.
+- **V1 — vulnerable:** authenticated customers can read another customer's order through `GET /api/orders/{id}`. This is a deliberately seeded IDOR/Broken Object Level Authorization flaw.
+- **V2 — hardened:** the same endpoint returns 404 when a customer requests an order they do not own; administrators can still read all orders.
 
-## Stack
-- Java 21, Spring Boot 3.5.12, Maven
-- Spring Security with disposable demo users
-- Static HTML/CSS/JavaScript dashboard
-- ClamAV 1.4.6 for upload scanning
-- Docker and GitHub Actions
+Both versions retain the same upload pipeline (allowlisted file signatures, 5 MiB cap, ClamAV scan, fail-closed behavior). That keeps the experiment focused: do not attribute upload-security differences to the IDOR remediation.
 
-## Quick start
-Requirements: JDK 21+ and Docker Compose. Allow Docker enough memory for ClamAV's signature database (the ClamAV documentation recommends around 4 GB).
+> Safety: V1 is intentionally insecure. Run only on your own machine or an isolated CI runner. Compose publishes both apps on loopback only. Never expose V1 to a shared network or the public internet.
 
-1. Export disposable local credentials:
-   export LAB_ADMIN_PASSWORD='replace-with-a-long-local-password'
-   export LAB_CUSTOMER_PASSWORD='replace-with-another-long-local-password'
-2. Run: docker compose up --build
-3. Open http://127.0.0.1:8080
-4. Health: curl http://127.0.0.1:8080/actuator/health
-5. API: curl -u lab-customer:$LAB_CUSTOMER_PASSWORD http://127.0.0.1:8080/api/products
-6. Upload scan: curl -u lab-customer:$LAB_CUSTOMER_PASSWORD -F 'file=@notes.txt' http://127.0.0.1:8080/api/uploads
+## Run both versions
 
-The host port is published only on 127.0.0.1. Docker overrides the app's internal bind address so the container can receive traffic through that loopback-only port mapping. ClamAV is reachable only on the internal Compose network; its TCP port is not published to the host.
+Requirements: Docker Compose and enough memory for ClamAV's signature database.
 
-## Demo accounts
-- lab-customer: regular user; can read their own order and upload files.
-- lab-admin: administrator; can create products and inspect all demo orders.
+```bash
+export LAB_ADMIN_PASSWORD='local-admin-password'
+export LAB_CUSTOMER_PASSWORD='local-customer-password'
+docker compose -f compose.compare.yaml up --build -d
+```
 
-Set both passwords through environment variables. Do not reuse production credentials.
+- V1: http://127.0.0.1:8081
+- V2: http://127.0.0.1:8082
+- ClamAV is internal to the Compose network and is not host-published.
 
-## Profiles
-- Default: safer baseline. Intentionally vulnerable routes are not loaded.
-- lab-vulnerable: opt-in IDOR demonstration. Use only in an isolated local lab.
+Run the same customer request against both:
 
-To run locally with Maven, start ClamAV separately and set CLAMAV_HOST=127.0.0.1, then:
-   export LAB_ADMIN_PASSWORD='replace-me'
-   export LAB_CUSTOMER_PASSWORD='replace-me-too'
-   mvn spring-boot:run
+```bash
+./scripts/attack-comparison.sh
+```
 
-To enable the vulnerable profile locally, additionally set SPRING_PROFILES_ACTIVE=lab-vulnerable. Never use this profile on a shared host or public deployment.
+Expected result: V1 returns HTTP 200 and exposes order 1002; V2 returns HTTP 404. The script fails if those expectations are not met.
 
-## Security tool coverage
+Stop the lab:
 
-| Tool | Intended coverage | Current integration |
-|---|---|---|
-| Strix | Authorized AI-assisted DAST | Manual run; needs Docker and an LLM provider |
-| Cloudflare Security Audit Skill | Multi-phase agent source audit | Manual agent workflow; sandbox required |
-| Trivy | Dependencies, images, IaC, secrets | GitHub Actions filesystem dependency, misconfiguration and secret scan |
-| Nuclei | Template-based runtime testing | GitHub Actions local IDOR regression |
-| TruffleHog | Secrets in Git history | GitHub Actions full-history scan |
-| NVIDIA SkillSpector | Agent skill supply chain | Manual scan of installed skills |
-| Semgrep | Static source analysis | GitHub Actions Java ruleset |
-| Codex Security | AI-assisted vulnerability investigation | Manual CLI/SDK; requires access and credentials |
-| ClamAV | Uploaded-file malware detection | API integration and EICAR regression workflow |
-| Claude Code Security Review | AI-assisted PR review | Optional; only trusted PRs, requires API key |
-| Blind LLM Agents (BLA) | Reverse-engineering resistance | Separate release-artifact experiment; not a vuln scanner |
-| Microsoft PyRIT | LLM red teaming | Deferred until an LLM-backed assistant is added |
+```bash
+docker compose -f compose.compare.yaml down
+```
 
-These tools are not interchangeable. The table describes current integration status, not a claim that all 12 have completed scans or passed.
+## Run the regression tests
 
-## Evidence policy
-For every run, record the exact command, tool version, target commit, sanitized output, manual triage, false positives and limitations. Never fabricate counts or results. Never commit credentials or raw sensitive data.
+```bash
+./scripts/test-both-versions.sh
+```
+
+The V1 test intentionally asserts the vulnerability exists. The V2 test asserts cross-customer access is denied. These are different expected outcomes, not a shared test suite that passes by hiding the difference.
+
+## Run Nuclei
+
+```bash
+nuclei -u http://127.0.0.1:8081 -t nuclei-templates/idor-v1.yaml \
+  -H "Authorization: Basic $(printf 'lab-customer:%s' "$LAB_CUSTOMER_PASSWORD" | base64)"
+``
+
+The V1 template should report the seeded IDOR. The same template against V2 should produce no finding. The manual comparison script remains the authoritative simple regression check.
+
+## Security tools and evidence
+
+The existing CI continues to scan the original root application and its artifacts. The comparison-specific workflow builds both independent versions, runs both Maven test suites, and performs the same authenticated runtime probe against each. Tool outputs must be committed under `results/` only after the workflow actually runs; no result counts or pass claims are pre-filled.
+
+Not all items in the original 12-tool list are comparable application scanners. Strix, Codex Security, Claude Code Security Review, and agent-based audits require credentials/product access; SkillSpector scans agent skills; ClamAV scans uploaded content; PyRIT needs an LLM-backed target; BLA addresses reverse-engineering resistance. The article must state these boundaries.
 
 ## Layout
-- src/: Spring Boot API and dashboard
-- docs/: architecture, methodology, tool notes and article draft
-- nuclei-templates/: lab-specific Nuclei regression template
-- reports/: sanitized scan evidence
-- .github/workflows/: CI and security checks
 
-See docs/experiment-plan.md and docs/tools.md for methodology and tool-specific notes.
+- `versions/v1-vulnerable/`: standalone Maven project with the intentionally missing ownership check
+- `versions/v2-hardened/`: standalone Maven project with the owner/admin authorization check
+- `compose.compare.yaml`: isolated side-by-side runtime
+- `scripts/`: repeatable test and attack scripts
+- `nuclei-templates/idor-v1.yaml`: V1-only runtime detection template
+- `docs/experiment-plan.md`: controlled comparison methodology
+- `docs/article-draft.md`: updated article draft; measured results remain pending until CI evidence exists
+
+The original root project and its workflows are retained for provenance. This comparison is a new, clearer experiment layered alongside that initial implementation.

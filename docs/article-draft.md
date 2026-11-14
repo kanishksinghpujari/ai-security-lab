@@ -1,154 +1,93 @@
-# I Built an App With AI. Then I Put 12 Security Tools Against It.
+# I Built Two Versions of the Same App. Then I Tried to Break Both.
 
-*An experiment in vibe coding, application security, and why one scanner will never be enough.*
+*An evidence-driven comparison of a deliberately vulnerable application and its hardened counterpart.*
 
-AI coding tools have changed how quickly we can ship software. A developer can describe an application, generate a backend, add a UI, wire up Docker, and get something working in a fraction of the time it used to take.
+AI coding tools make it possible to ship a working application quickly. But working software and secure software are not the same thing. I wanted to run a controlled experiment: build the same application twice, deliberately leave a security flaw in the first version, fix it in the second, and attack both with the same tools.
 
-But that creates a new bottleneck.
+The project is **AI Security Lab**: https://github.com/kanishksinghpujari/ai-security-lab
 
-**The code can arrive faster than the security review.**
+## The experiment: same app, two builds
 
-I wanted to see what happens when we take an AI-assisted application and run it through a set of open-source security tools—not just read their READMEs, but give them a real codebase and a running target.
+The application is Stockroom, a small inventory and order-management service built with Java 21 and Spring Boot 3.5.12. Both builds use the same API surface, UI, demo data, dependencies, authentication mechanism, Docker runtime, and upload pipeline.
 
-The result is an experiment called **AI Security Lab**.
+The only intended difference is the authorization check on order reads.
+
+| | V1 — vulnerable | V2 — hardened |
+|---|---|---|
+| Customer reads own order | Allowed | Allowed |
+| Customer reads another customer's order | **Allowed (IDOR/BOLA)** | **Denied (404)** |
+| Admin reads any order | Allowed | Allowed |
+| Upload controls | Same | Same |
+| Framework and dependencies | Same baseline | Same baseline |
+
+This is important. If the versions differ in many unrelated ways, a scanner result cannot be attributed to the security change.
+
+## The vulnerability we planted
+
+Order 1001 belongs to `lab-customer`. Order 1002 belongs to `another-customer`.
+
+In V1, the endpoint authenticates the caller but does not verify that the requested order belongs to that caller. A customer can change the numeric ID and retrieve another customer's order.
+
+In V2, the same endpoint checks the order owner and allows an administrator override. A non-owner receives 404, avoiding disclosure that another customer's order exists.
+
+Both variants have separate Maven projects and can be started side by side on loopback-only ports: V1 on 8081 and V2 on 8082. The vulnerable service is never published to the internet.
+
+## The attack protocol
+
+The comparison uses the same credentials, request, test data, and scanner template against both versions:
+
+```bash
+curl -u "lab-customer:$LAB_CUSTOMER_PASSWORD" \
+  http://127.0.0.1:8081/api/orders/1002
+
+curl -u "lab-customer:$LAB_CUSTOMER_PASSWORD" \
+  http://127.0.0.1:8082/api/orders/1002
+```
+
+Expected behavior: V1 returns 200 with the seeded order; V2 returns 404. The repository includes a script that asserts those outcomes and independent test suites that explicitly encode the expected behavior for each version.
+
+Nuclei is used as a positive control against V1: it should detect the known IDOR. The same template against V2 should produce no finding. A scanner's silence is not proof of security, so the negative result is paired with direct authorization tests.
+
+## The tools—and what they can actually tell us
+
+The project includes a wider tool evaluation, but the tools have different jobs:
+
+- **Nuclei / Strix:** runtime testing of an authorized local target.
+- **Semgrep:** suspicious source-code patterns.
+- **Trivy:** dependencies, filesystem configuration and container images.
+- **TruffleHog:** secrets in Git history.
+- **ClamAV:** malware scanning for uploaded files.
+- **SkillSpector / Cloudflare audit skill:** agent-skill and source-audit workflows.
+- **Codex Security / Claude Code Security Review:** AI-assisted code review requiring product access and credentials.
+- **PyRIT:** LLM red teaming; not applicable until the app has an LLM-backed feature.
+- **Blind LLM Agents:** release-artifact reverse-engineering resistance, not ordinary application vulnerability scanning.
+
+I will not describe a tool as passing if it was not run. Credential-gated or inapplicable tools will be clearly marked as such.
+
+## Results: leave room for evidence, not guesses
+
+This section is intentionally a results template until the comparison workflows finish. The numbers below must come from saved CI artifacts and manual triage, not assumptions.
+
+| Measurement | V1 | V2 |
+|---|---:|---:|
+| Seeded IDOR exploit result | Pending CI | Pending CI |
+| Nuclei result | Pending CI | Pending CI |
+| Maven authorization tests | Pending CI | Pending CI |
+| Confirmed unrelated findings | Pending triage | Pending triage |
+| False positives / missed cases | Pending triage | Pending triage |
+
+For each run, the repository records the tool version, exact command, target commit, sanitized output, manual disposition, and limitations. A clean scan means only that the scanner did not report an issue within its coverage.
+
+## What this experiment can show
+
+If the expected behavior is confirmed, the most defensible conclusion is narrow but useful: the owner check prevents the seeded cross-customer order disclosure, and the same runtime test can distinguish the vulnerable and hardened variants.
+
+It does not prove that V2 is invulnerable. It does not mean every one of the 12 tools can evaluate every risk. It shows why security needs multiple layers: code review, authorization tests, dependency and image scans, secret detection, runtime testing, and file scanning each cover different failure modes.
+
+## Reproduce it
+
+Follow the README to build both versions, run the same attack, and stop the lab. V1 is intentionally insecure and must remain local.
 
 Repository: https://github.com/kanishksinghpujari/ai-security-lab
 
-## The application: Stockroom
-
-I built a small inventory and order-management application with Java 21 and Spring Boot. It has a lightweight browser dashboard, two demo roles, product management, order lookup, and file uploads.
-
-The application is intentionally small. The point is not to build another SaaS product. The point is to create enough realistic attack surface to test different classes of security tooling.
-
-The demo includes:
-
-- A customer role and an administrator role
-- Product listing and admin-only product creation
-- Orders that belong to specific users
-- A file-upload endpoint with type checks and malware scanning
-- Docker-based local execution
-- GitHub Actions security workflows
-
-The application uses synthetic data and in-memory storage. It is a lab, not a production commerce system.
-
-## I wanted a real vulnerability—not a scanner demo
-
-A security scanner that reports zero findings might mean the code is clean. It might also mean the scanner never exercised the vulnerable path.
-
-So I added a deliberately vulnerable IDOR example behind a separate Spring profile named `lab-vulnerable`.
-
-In the normal application, a customer can read their own order, but cannot read another customer's order. The API returns 404 for an order the user does not own.
-
-The vulnerable profile exposes a separate training route that authenticates the caller but forgets the ownership check. That is the exact kind of authorization mistake that can survive a superficial code review.
-
-The vulnerable profile is disabled by default. The Nuclei workflow starts it only inside an isolated GitHub Actions runner, scans the local service, and stores the result as a workflow artifact. It is never exposed as a public deployment.
-
-## Twelve tools, twelve different jobs
-
-The original list contains tools that operate at very different layers. Treating them as twelve versions of the same scanner would make the experiment meaningless.
-
-| Tool | What it is actually useful for |
-|---|---|
-| Strix | AI-assisted penetration testing against an authorized running application |
-| Cloudflare Security Audit Skill | Multi-phase, agent-assisted source audit with independent finding verification |
-| Trivy | Dependency, container, filesystem, IaC, misconfiguration and secret scanning |
-| Nuclei | Template-driven checks against a running service |
-| TruffleHog | Secret discovery and credential validation across Git history and other sources |
-| NVIDIA SkillSpector | Security analysis of AI agent skills before installation |
-| Semgrep | Static analysis for insecure source patterns |
-| Codex Security | AI-assisted vulnerability investigation, validation and remediation |
-| ClamAV | Malware detection for uploaded files |
-| Claude Code Security Review | AI-assisted security review of pull-request diffs |
-| Blind LLM Agents (BLA) | Defensive hardening of release artifacts against AI-assisted reverse engineering |
-| Microsoft PyRIT | Adversarial testing of LLM-powered applications |
-
-The important distinction: a Java source scanner cannot tell you whether an uploaded file contains malware. A skill scanner does not inspect Spring authorization logic. A binary-protection tool is not a substitute for DAST.
-
-## The first real finding: a vulnerable dependency
-
-The first Trivy filesystem run used Trivy 0.59.1 against the initial application commit.
-
-It reported two HIGH-severity Spring Boot findings in version 3.4.5:
-
-- CVE-2026-22731
-- CVE-2026-22733
-
-The scanner output listed Spring Boot 3.5.12 as a fixed version for both findings.
-
-I upgraded the Spring Boot parent from 3.4.5 to 3.5.12 and reran the dependency and secret scan. That repeat workflow completed successfully.
-
-This is a useful example of a scanner doing something concrete: it found a vulnerable dependency before the application was deployed, and the dependency was upgraded.
-
-A green scan is not proof that an application is secure. It means the scanner did not report a finding within that scan's scope and database.
-
-The first Trivy run also emitted Rego parser errors while loading remote misconfiguration checks. I recorded that as a scanner/check-bundle compatibility issue rather than an application vulnerability. The workflow was later upgraded to Trivy 0.76.2 and expanded to include filesystem misconfiguration and built-image scans; those newer runs are tracked separately.
-
-## Nuclei: testing the running application
-
-Semgrep and Trivy inspect source and artifacts. They do not prove that a running endpoint enforces the right authorization rule.
-
-For that, I added a small Nuclei template that requests the seeded vulnerable order route using the demo customer's credentials.
-
-The Nuclei regression workflow successfully detected the intentionally exposed IDOR route in the isolated vulnerable profile.
-
-That is the behavior I wanted to see: the test target contains a known issue, the scanner identifies it, and the workflow preserves the evidence.
-
-The secure endpoint is covered separately by application tests: a customer can read order 1001, cannot read order 1002, and an administrator can read either.
-
-## ClamAV: uploads are a different security problem
-
-I also added a file-upload endpoint because application security is not only about code and HTTP routes.
-
-The endpoint accepts a small allowlist of file types, checks file signatures, enforces a 5 MiB size limit, and streams file contents to ClamAV using its INSTREAM protocol.
-
-Two behaviors matter:
-
-1. A clean file can be accepted.
-2. If ClamAV is unavailable, the application fails closed instead of treating the file as safe.
-
-The dedicated workflow uses a harmless clean text fixture and the standard EICAR antivirus test signature to verify both outcomes. The workflow result is tracked separately from the earlier completed scans.
-
-## What is already automated—and what still needs credentials
-
-The repository now has GitHub Actions workflows for:
-
-- Maven build and authorization regression tests
-- Semgrep Java static analysis
-- Trivy filesystem and container-image scans
-- Nuclei testing of the seeded IDOR route
-- TruffleHog scanning of full Git history
-- ClamAV upload regression testing
-- SkillSpector scanning of the Cloudflare audit skill in static-only mode
-
-Not every tool can be run in the same CI job.
-
-Strix needs Docker and an LLM provider. Cloudflare's audit skill expects a coding agent with parallel sub-agents and an OS-enforced sandbox. Codex Security requires its CLI/product access and credentials. Claude Code Security Review requires a Claude API key and should only run on trusted pull requests because of its prompt-injection considerations.
-
-BLA protects release artifacts against AI-assisted reverse engineering; it is not a conventional vulnerability scanner. PyRIT needs an LLM-backed feature and a target harness. This application does not yet include an LLM assistant, so PyRIT is a planned extension rather than a claimed result.
-
-That is not a weakness in the experiment. It is the point: security tools have boundaries, and a credible evaluation needs to state them.
-
-## What I learned so far
-
-The most useful lesson is that a security pipeline should be layered.
-
-- Use SAST to catch suspicious source patterns.
-- Use dependency and image scanning to catch known vulnerable components.
-- Use secret scanning to prevent credential leaks.
-- Use DAST to test the behavior of a running service.
-- Use malware scanning for uploaded content.
-- Use skill scanning before trusting agent instructions.
-- Use LLM red teaming only when there is an LLM-powered feature to attack.
-- Use release-artifact hardening when reverse engineering is part of the threat model.
-
-And most importantly, keep the evidence. A scanner's exit code is not a security report. Record the version, command, target commit, raw sanitized output, false positives, confirmed findings, and the remediation that followed.
-
-## Reproduce the experiment
-
-Clone the repository and follow the README. The default application runs on loopback only. The intentionally vulnerable profile is opt-in and should only be used in the isolated lab.
-
-https://github.com/kanishksinghpujari/ai-security-lab
-
-This is an evolving experiment. The results above distinguish completed runs from integrations that are still pending; I will update the article as the remaining workflows finish.
-
-The goal isn't to prove that twelve tools make an application invulnerable. It's to understand which risks each tool can see, which ones it cannot, and how to build a security workflow that catches more than a single scanner ever could.
+The goal is not to produce a dramatic scanner score. It is to make the comparison repeatable, preserve the evidence, and be honest about what each tool did—and did not—find.

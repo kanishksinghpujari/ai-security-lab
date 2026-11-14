@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101827">
+  <title>Stockroom — AI Security Lab</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Stockroom home"><span class="brand-mark">S</span><span>stockroom<span class="brand-dot">.</span></span></a>
+      <span class="lab-label"><span class="pulse"></span> SECURITY LAB</span>
+    </header>
+
+    <section class="hero">
+      <div>
+        <p class="eyebrow">INVENTORY CONTROL CENTER</p>
+        <h1>Know what’s in stock.<br><span>Know who can see it.</span></h1>
+        <p class="subhead">A deliberately small commerce API for a hands-on application security experiment.</p>
+      </div>
+      <div class="hero-art" aria-hidden="true"><div class="orb orb-one"></div><div class="orb orb-two"></div><div class="cube"><span>SKU</span><b>01</b></div></div>
+    </section>
+
+    <section class="login-card panel">
+      <div class="section-heading"><div><p class="eyebrow">DEMO SESSION</p><h2>Sign in to your workspace</h2></div><span class="status" id="session-status">SIGNED OUT</span></div>
+      <div class="login-grid">
+        <label>Username<input id="username" autocomplete="username" value="lab-customer"></label>
+        <label>Password<input id="password" type="password" autocomplete="current-password" placeholder="Your local lab password"></label>
+        <button class="primary" id="login-button">Connect <span>→</span></button>
+      </div>
+      <p class="hint">Use the disposable credentials you set in your local environment. Credentials stay in this browser tab and are not saved to local storage.</p>
+      <p class="error" id="login-error" role="alert"></p>
+    </section>
+
+    <section class="metrics" id="metrics" hidden>
+      <article class="metric panel"><span>CATALOG ITEMS</span><strong id="product-count">—</strong><small>Available in demo inventory</small></article>
+      <article class="metric panel"><span>ACCESS MODEL</span><strong>RBAC</strong><small>Customer and administrator roles</small></article>
+      <article class="metric panel"><span>API STATUS</span><strong class="live">CONNECTED</strong><small>Authenticated API session</small></article>
+    </section>
+
+    <section class="content-grid" id="workspace" hidden>
+      <article class="panel table-panel">
+        <div class="section-heading"><div><p class="eyebrow">PRODUCT CATALOG</p><h2>Inventory</h2></div><button class="quiet" id="refresh-products">Refresh ↻</button></div>
+        <div id="products" class="product-list"><p class="muted">Sign in to load inventory.</p></div>
+        <div class="admin-form" id="admin-form" hidden>
+          <div class="section-heading"><div><p class="eyebrow">ADMIN ONLY</p><h3>Add a product</h3></div><span class="status">ROLE: ADMIN</span></div>
+          <form id="create-product">
+            <label>Product name<input name="name" maxlength="100" required placeholder="e.g. Wireless Mouse"></label>
+            <div class="form-row"><label>Price (paise)<input name="priceInPaise" type="number" min="1" required value="1999"></label><label>Stock<input name="stock" type="number" min="0" required value="10"></label></div>
+            <button class="primary" type="submit">Add to inventory <span>→</span></button>
+          </form>
+          <p class="error" id="product-error" role="alert"></p>
+        </div>
+      </article>
+
+      <aside class="panel order-panel">
+        <p class="eyebrow">ORDER LOOKUP</p><h2>Find an order</h2>
+        <p class="muted">Customers can only access their own orders. Administrators can inspect all demo orders.</p>
+        <form id="lookup-order">
+          <label>Order ID<input id="order-id" type="number" min="1" value="1001" required></label>
+          <button class="secondary" type="submit">Check access <span>→</span></button>
+        </form>
+        <div id="order-result" class="order-result"><span class="muted">No order selected.</span></div>
+        <div class="callout"><strong>Security exercise</strong><p>Try order 1002 as lab-customer. The secure endpoint should return 404 rather than disclose another customer’s order.</p></div>
+        <div class="upload-box">
+          <p class="eyebrow">FILE SAFETY CHECK</p><h3>Scan an upload</h3>
+          <p class="muted">PNG, JPEG, PDF or plain text · 5 MiB maximum · ClamAV scans before acceptance.</p>
+          <form id="upload-form">
+            <label>Choose a file<input id="upload-file" type="file" accept=".png,.jpg,.jpeg,.pdf,.txt" required></label>
+            <button class="secondary" type="submit">Upload and scan <span>→</span></button>
+          </form>
+          <p id="upload-result" class="upload-result" aria-live="polite"></p>
+        </div>
+      </aside>
+    </section>
+
+    <footer><span>STOCKROOM / AI SECURITY LAB</span><span>LOCAL DEMO · SYNTHETIC DATA ONLY</span></footer>
+  </main>
+  <script src="/app.js" defer></script>
+</body>
+</html>
