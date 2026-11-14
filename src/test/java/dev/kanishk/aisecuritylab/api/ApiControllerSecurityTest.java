@@ -19,6 +19,12 @@ class ApiControllerSecurityTest {
     MockMvc mvc;
 
     @Test
+    void dashboardIsPublicButApiRequiresAuthentication() throws Exception {
+        mvc.perform(get("/")).andExpect(status().isOk());
+        mvc.perform(get("/api/products")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     @WithMockUser(username = "lab-customer", roles = "USER")
     void customerCanReadOwnOrder() throws Exception {
         mvc.perform(get("/api/orders/1001")).andExpect(status().isOk());
