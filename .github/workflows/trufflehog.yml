@@ -23,7 +23,7 @@ jobs:
           docker run --rm \
             -v "$PWD:/workdir" \
             -w /workdir \
-            trufflesecurity/trufflehog:v3.99.9 \
+            trufflesecurity/trufflehog:3.99.9 \
             git file:///workdir \
             --results=verified,unknown \
             --fail \
