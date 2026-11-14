@@ -20,13 +20,18 @@ Requirements: JDK 21+ and Docker Compose.
 3. Health: curl http://127.0.0.1:8080/actuator/health
 4. API: curl -u lab-customer:$LAB_CUSTOMER_PASSWORD http://127.0.0.1:8080/api/products
 
-The app is bound to loopback (127.0.0.1). Do not change that binding for the vulnerable exercise.
+The host port is published only on 127.0.0.1. Docker overrides the app's internal bind address so the container can receive traffic through that loopback-only port mapping.
 
 ## Profiles
 - Default: safer baseline. Intentionally vulnerable routes are not loaded.
 - lab-vulnerable: opt-in IDOR demonstration. Use only in an isolated local lab.
 
-To run the vulnerable profile locally, set SPRING_PROFILES_ACTIVE=lab-vulnerable and start the app with Maven. Never use this profile on a shared host or public deployment.
+To run locally with Maven:
+   export LAB_ADMIN_PASSWORD='replace-me'
+   export LAB_CUSTOMER_PASSWORD='replace-me-too'
+   mvn spring-boot:run
+
+To enable the vulnerable profile locally, additionally set SPRING_PROFILES_ACTIVE=lab-vulnerable. Never use this profile on a shared host or public deployment.
 
 ## Tool coverage plan
 
