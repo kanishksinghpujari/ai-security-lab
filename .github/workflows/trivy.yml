@@ -17,11 +17,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Scan repository filesystem
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          scanners: vuln,misconfig,secret
-          format: table
-          exit-code: '1'
-          severity: CRITICAL,HIGH
+        run: |
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            aquasec/trivy:0.59.1 \
+            fs --scanners vuln,misconfig,secret \
+            --severity CRITICAL,HIGH \
+            --skip-dirs .git,target \
+            --exit-code 1 .
