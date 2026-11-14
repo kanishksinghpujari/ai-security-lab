@@ -48,7 +48,7 @@ To enable the vulnerable profile locally, additionally set SPRING_PROFILES_ACTIV
 |---|---|---|
 | Strix | Authorized AI-assisted DAST | Manual run; needs Docker and an LLM provider |
 | Cloudflare Security Audit Skill | Multi-phase agent source audit | Manual agent workflow; sandbox required |
-| Trivy | Dependencies, images, IaC, secrets | GitHub Actions filesystem dependency/secret scan |
+| Trivy | Dependencies, images, IaC, secrets | GitHub Actions filesystem dependency, misconfiguration and secret scan |
 | Nuclei | Template-based runtime testing | GitHub Actions local IDOR regression |
 | TruffleHog | Secrets in Git history | GitHub Actions full-history scan |
 | NVIDIA SkillSpector | Agent skill supply chain | Manual scan of installed skills |
